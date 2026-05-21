@@ -1,6 +1,12 @@
 import { assertEquals } from "@std/assert";
-import { add } from "./main.ts";
+import { Todo } from "./main.ts";
 
 Deno.test(function addTest() {
-  assertEquals(add(2, 3), 5);
+  const todo = {
+    id: "1234",
+    title: "test deno app",
+    completed: true,
+    createdAt: new Date().getTime(),
+  } as Todo;
+  assertEquals(todo.id, "1234");
 });

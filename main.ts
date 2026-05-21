@@ -4,7 +4,7 @@
 import { serveDir } from "jsr:@std/http/file-server";
 
 // ── Types & Store ─────────────────────────────────────────────
-interface Todo {
+export interface Todo {
   id: string;
   title: string;
   completed: boolean;
@@ -44,7 +44,7 @@ async function handleTodos(req: Request): Promise<Response> {
 
   // POST /api/todos
   if (method === "POST" && pathname === "/api/todos") {
-    const body = await req.json() as { title?: string };
+    const body = (await req.json()) as { title?: string };
     const title = body.title?.trim();
     if (!title) return json({ error: "title is required" }, 400);
     const todo: Todo = {
@@ -63,7 +63,7 @@ async function handleTodos(req: Request): Promise<Response> {
     if (!id) return json({ error: "not found" }, 404);
     const idx = todos.findIndex((t) => t.id === id);
     if (idx === -1) return json({ error: "not found" }, 404);
-    const body = await req.json() as { title?: string; completed?: boolean };
+    const body = (await req.json()) as { title?: string; completed?: boolean };
     if (body.title !== undefined) todos[idx].title = body.title;
     if (body.completed !== undefined) todos[idx].completed = body.completed;
     return json(todos[idx]);

@@ -1,233 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Todo — Deno + Vue</title>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 3rem 1rem;
-    }
-    #app { width: 100%; max-width: 540px; }
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      margin-bottom: 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: .5rem;
-    }
-    h1 span { color: #38bdf8; }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Todo — Deno + Vue</title>
+        <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div id="app">
+            <h1>📋 <span>Todo</span> App</h1>
 
-    /* Input bar */
-    .input-bar {
-      display: flex;
-      gap: .5rem;
-      margin-bottom: 1.5rem;
-    }
-    .input-bar input {
-      flex: 1;
-      padding: .65rem 1rem;
-      border-radius: .5rem;
-      border: 1px solid #334155;
-      background: #1e293b;
-      color: #f1f5f9;
-      font-size: .95rem;
-      outline: none;
-      transition: border-color .15s;
-    }
-    .input-bar input:focus { border-color: #38bdf8; }
-    .input-bar button {
-      padding: .65rem 1.2rem;
-      border-radius: .5rem;
-      border: none;
-      background: #38bdf8;
-      color: #0f172a;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s;
-    }
-    .input-bar button:hover { background: #7dd3fc; }
+            <div class="input-bar">
+                <input
+                    v-model="newTitle"
+                    @keyup.enter="addTodo"
+                    placeholder="What needs to be done?"
+                    autofocus
+                />
+                <button @click="addTodo" :disabled="!newTitle.trim()">
+                    Add
+                </button>
+            </div>
 
-    /* Stats */
-    .stats {
-      display: flex;
-      gap: 1rem;
-      font-size: .8rem;
-      color: #94a3b8;
-      margin-bottom: 1rem;
-    }
+            <div class="stats" v-if="todos.length">
+                <span>{{ remaining }} remaining</span>
+                <span>·</span>
+                <span>{{ completed }} completed</span>
+            </div>
 
-    /* Todo list */
-    .todo-list { list-style: none; display: flex; flex-direction: column; gap: .4rem; }
-    .todo-item {
-      display: flex;
-      align-items: center;
-      gap: .65rem;
-      padding: .7rem .85rem;
-      background: #1e293b;
-      border-radius: .5rem;
-      border: 1px solid #334155;
-      transition: border-color .15s;
-    }
-    .todo-item:hover { border-color: #475569; }
-    .todo-item.done .title { text-decoration: line-through; color: #64748b; }
+            <div class="filters" v-if="todos.length">
+                <button
+                    :class="{ active: filter === 'all' }"
+                    @click="filter = 'all'"
+                >
+                    All
+                </button>
+                <button
+                    :class="{ active: filter === 'active' }"
+                    @click="filter = 'active'"
+                >
+                    Active
+                </button>
+                <button
+                    :class="{ active: filter === 'done' }"
+                    @click="filter = 'done'"
+                >
+                    Done
+                </button>
+            </div>
 
-    /* Checkbox */
-    .check {
-      width: 1.25rem; height: 1.25rem;
-      border-radius: .3rem;
-      border: 2px solid #475569;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: all .15s;
-    }
-    .check.checked { background: #38bdf8; border-color: #38bdf8; }
-    .check.checked::after { content: '✓'; color: #0f172a; font-size: .75rem; font-weight: 700; }
+            <ul class="todo-list" v-if="filtered.length">
+                <li
+                    v-for="todo in filtered"
+                    :key="todo.id"
+                    class="todo-item"
+                    :class="{ done: todo.completed }"
+                >
+                    <div
+                        class="check"
+                        :class="{ checked: todo.completed }"
+                        @click="toggle(todo)"
+                    ></div>
+                    <span class="title">{{ todo.title }}</span>
+                    <button
+                        class="delete-btn"
+                        @click="remove(todo.id)"
+                        title="Delete"
+                    >
+                        ×
+                    </button>
+                </li>
+            </ul>
+            <p v-else class="empty">
+                {{ todos.length === 0 ? 'No todos yet — add one above!' : 'No '
+                + filter + ' todos' }}
+            </p>
+        </div>
 
-    .title { flex: 1; font-size: .95rem; }
-
-    .delete-btn {
-      background: none; border: none; color: #64748b;
-      cursor: pointer; font-size: 1.1rem; padding: 0 .25rem;
-      transition: color .15s;
-    }
-    .delete-btn:hover { color: #f87171; }
-
-    /* Empty state */
-    .empty { text-align: center; color: #64748b; padding: 2rem 0; font-size: .9rem; }
-
-    /* Filters */
-    .filters {
-      display: flex;
-      gap: .5rem;
-      margin-bottom: 1rem;
-    }
-    .filters button {
-      padding: .3rem .75rem;
-      border-radius: .375rem;
-      border: 1px solid #334155;
-      background: transparent;
-      color: #94a3b8;
-      font-size: .8rem;
-      cursor: pointer;
-      transition: all .15s;
-    }
-    .filters button.active { background: #334155; color: #e2e8f0; border-color: #475569; }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <h1>📋 <span>Todo</span> App</h1>
-
-    <div class="input-bar">
-      <input
-        v-model="newTitle"
-        @keyup.enter="addTodo"
-        placeholder="What needs to be done?"
-        autofocus
-      />
-      <button @click="addTodo" :disabled="!newTitle.trim()">Add</button>
-    </div>
-
-    <div class="stats" v-if="todos.length">
-      <span>{{ remaining }} remaining</span>
-      <span>·</span>
-      <span>{{ completed }} completed</span>
-    </div>
-
-    <div class="filters" v-if="todos.length">
-      <button :class="{ active: filter === 'all' }" @click="filter = 'all'">All</button>
-      <button :class="{ active: filter === 'active' }" @click="filter = 'active'">Active</button>
-      <button :class="{ active: filter === 'done' }" @click="filter = 'done'">Done</button>
-    </div>
-
-    <ul class="todo-list" v-if="filtered.length">
-      <li
-        v-for="todo in filtered"
-        :key="todo.id"
-        class="todo-item"
-        :class="{ done: todo.completed }"
-      >
-        <div class="check" :class="{ checked: todo.completed }" @click="toggle(todo)"></div>
-        <span class="title">{{ todo.title }}</span>
-        <button class="delete-btn" @click="remove(todo.id)" title="Delete">×</button>
-      </li>
-    </ul>
-    <p v-else class="empty">
-      {{ todos.length === 0 ? 'No todos yet — add one above!' : 'No ' + filter + ' todos' }}
-    </p>
-  </div>
-
-  <script>
-    const { createApp, ref, computed, onMounted } = Vue;
-
-    createApp({
-      setup() {
-        const todos = ref([]);
-        const newTitle = ref('');
-        const filter = ref('all');
-
-        // Fetch all todos
-        async function fetchTodos() {
-          const res = await fetch('/api/todos');
-          todos.value = await res.json();
-        }
-
-        // Add a new todo
-        async function addTodo() {
-          const title = newTitle.value.trim();
-          if (!title) return;
-          await fetch('/api/todos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title }),
-          });
-          newTitle.value = '';
-          await fetchTodos();
-        }
-
-        // Toggle completed
-        async function toggle(todo) {
-          await fetch(`/api/todos/${todo.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ completed: !todo.completed }),
-          });
-          await fetchTodos();
-        }
-
-        // Delete
-        async function remove(id) {
-          await fetch(`/api/todos/${id}`, { method: 'DELETE' });
-          await fetchTodos();
-        }
-
-        // Computed
-        const remaining = computed(() => todos.value.filter(t => !t.completed).length);
-        const completed = computed(() => todos.value.filter(t => t.completed).length);
-        const filtered = computed(() => {
-          if (filter.value === 'active') return todos.value.filter(t => !t.completed);
-          if (filter.value === 'done') return todos.value.filter(t => t.completed);
-          return todos.value;
-        });
-
-        onMounted(fetchTodos);
-
-        return { todos, newTitle, filter, filtered, remaining, completed, addTodo, toggle, remove };
-      },
-    }).mount('#app');
-  </script>
-</body>
+        <script type="module" src="app.js"></script>
+    </body>
 </html>
